@@ -19,7 +19,7 @@ AC_PROG_CC
 LT_INIT([disable-shared])
 AM_PROG_AS
 #CXX="clang++"
-#CXXFLAGS="$CXXFLAGS -stdlib=libc++"
+CXXFLAGS="$CXXFLAGS -march=native"
 
 #SFFT_AR="/usr/bin/ar"
 #SFFT_CFLAGS="$CFLAGS"

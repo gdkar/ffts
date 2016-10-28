@@ -165,10 +165,10 @@ main(int argc, char *argv[]) {
 		printf(" Sign |      Size |     L2 Error\n");
 		printf("------+-----------+-------------\n");
 		int n;
-		for(n=1;n<=18;n++) {
+		for(n=1;n<=20;n++) {
 			test_transform(pow(2,n), -1);
 		}
-		for(n=1;n<=18;n++) {
+		for(n=1;n<=20;n++) {
 			test_transform(pow(2,n), 1);
 		}
 	}

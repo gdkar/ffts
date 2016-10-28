@@ -9,14 +9,14 @@
 
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
- 	* Redistributions of source code must retain the above copyright
- 		notice, this list of conditions and the following disclaimer.
- 	* Redistributions in binary form must reproduce the above copyright
- 		notice, this list of conditions and the following disclaimer in the
- 		documentation and/or other materials provided with the distribution.
- 	* Neither the name of the organization nor the
+	* Redistributions of source code must retain the above copyright
+		notice, this list of conditions and the following disclaimer.
+	* Redistributions in binary form must reproduce the above copyright
+		notice, this list of conditions and the following disclaimer in the
+		documentation and/or other materials provided with the distribution.
+	* Neither the name of the organization nor the
 	  names of its contributors may be used to endorse or promote products
- 		derived from this software without specific prior written permission.
+		derived from this software without specific prior written permission.
 
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -52,7 +52,7 @@
 #else
 #endif
 
-void ffts_execute(ffts_plan_t *p, const void *  in, void *  out) {
+void ffts_execute(ffts_plan_t *p, const void *	in, void *  out) {
 
 //TODO: Define NEEDS_ALIGNED properly instead 
 #if defined(HAVE_SSE) || defined(HAVE_NEON)
@@ -111,13 +111,13 @@ ffts_plan_t *ffts_init_1d(size_t N, int sign) {
 	V MULI_SIGN;
 	
 	if(sign < 0) MULI_SIGN = VLIT4(-0.0f, 0.0f, -0.0f, 0.0f);
-	else         MULI_SIGN = VLIT4(0.0f, -0.0f, 0.0f, -0.0f);
+	else	     MULI_SIGN = VLIT4(0.0f, -0.0f, 0.0f, -0.0f);
 //#endif 
 #else
 	V MULI_SIGN;
 	
 	if(sign < 0) MULI_SIGN = VLIT4(-0.0f, 0.0f, -0.0f, 0.0f);
-	else         MULI_SIGN = VLIT4(0.0f, -0.0f, 0.0f, -0.0f);
+	else	     MULI_SIGN = VLIT4(0.0f, -0.0f, 0.0f, -0.0f);
 #endif
 
 	p->transform = NULL;
@@ -172,217 +172,213 @@ ffts_plan_t *ffts_init_1d(size_t N, int sign) {
 		p->offsets = NULL;
 	}
 
-		int hardcoded = 0;
+	int hardcoded = N < 32;
 
-		/*      LUTS           */
-		size_t n_luts = __builtin_ctzl(N/leafN);
-		if(N < 32) { n_luts = __builtin_ctzl(N/4); hardcoded = 1; }
-
-		if(n_luts >= 32) n_luts = 0;
-
+	/*	LUTS	       */
+	size_t n_luts = 0;
+	{
+		size_t N_over_leaf = N/((N<32)?4ul:leafN);
+		n_luts = N_over_leaf ? __builtin_ctzl(N_over_leaf) : 0;
+	}
 //		fprintf(stderr, "n_luts = %zu\n", n_luts);
-		
-		cdata_t *w;
+	cdata_t *w;
+	int n = leafN*2;
+	if(hardcoded)
+		n = 8;
+	
+	size_t lut_size = 0;
 
-		int n = leafN*2;
-		if(hardcoded) n = 8;
-		
-		size_t lut_size = 0;
-
-		for(i=0;i<n_luts;i++) {
-			if(!i || hardcoded) {
-			#ifdef __arm__ 
-				if(N <= 32) lut_size += n/4 * 2 * sizeof(cdata_t);
-				else lut_size += n/4 * sizeof(cdata_t);
-			#else
-				lut_size += n/4 * 2 * sizeof(cdata_t);
-			#endif
-				n *= 2;
-			} else {
-			#ifdef __arm__
-				lut_size += n/8 * 3 * sizeof(cdata_t);
-			#else
-				lut_size += n/8 * 3 * 2 * sizeof(cdata_t);
-			#endif
-			}
-			n *= 2;
-		}
-		
-//		lut_size *= 16;
-		
-	//	fprintf(stderr, "lut size = %zu\n", lut_size);
-		if(n_luts) {
-			p->ws = FFTS_MALLOC(lut_size,32);
-			p->ws_is = malloc(n_luts * sizeof(size_t));
-		}else{
-			p->ws = NULL;
-			p->ws_is = NULL;
-		}
-		w = p->ws;
-
-		n = leafN*2;
-		if(hardcoded) n = 8;
-		
-		#ifdef HAVE_NEON
-			V neg = (sign < 0) ? VLIT4(0.0f, 0.0f, 0.0f, 0.0f) : VLIT4(-0.0f, -0.0f, -0.0f, -0.0f);
+	for(i=0;i<n_luts;i++) {
+		if(!i || hardcoded) {
+		#ifdef __arm__ 
+			if(N <= 32) lut_size += n/4 * 2 * sizeof(cdata_t);
+			else lut_size += n/4 * sizeof(cdata_t);
+		#else
+			lut_size += n/4 * 2 * sizeof(cdata_t);
 		#endif
+			n *= 2;
+		} else {
+		#ifdef __arm__
+			lut_size += n/8 * 3 * sizeof(cdata_t);
+		#else
+			lut_size += n/8 * 3 * 2 * sizeof(cdata_t);
+		#endif
+		}
+		n *= 2;
+	}
+	
+	if(n_luts) {
+		p->ws = FFTS_MALLOC(lut_size,32);
+		p->ws_is = malloc(n_luts * sizeof(size_t));
+	}else{
+		p->ws = NULL;
+		p->ws_is = NULL;
+	}
+	w = p->ws;
+
+	n = leafN*2;
+	if(hardcoded) n = 8;
+	
+	#ifdef HAVE_NEON
+		V neg = (sign < 0) ? VLIT4(0.0f, 0.0f, 0.0f, 0.0f) : VLIT4(-0.0f, -0.0f, -0.0f, -0.0f);
+	#endif
+	
+	for(i=0;i<n_luts;i++) {
+		p->ws_is[i] = w - (cdata_t *)p->ws;	
+		//fprintf(stderr, "LUT[%zu] = %d @ %08x - %zu\n", i, n, w, p->ws_is[i]);	
 		
-		for(i=0;i<n_luts;i++) {
-			p->ws_is[i] = w - (cdata_t *)p->ws;	
-			//fprintf(stderr, "LUT[%zu] = %d @ %08x - %zu\n", i, n, w, p->ws_is[i]);	
-			
-			if(!i || hardcoded) {
-				cdata_t *w0 = FFTS_MALLOC(n/4 * sizeof(cdata_t), 32);
+		if(!i || hardcoded) {
+			cdata_t *w0 = FFTS_MALLOC(n/4 * sizeof(cdata_t), 32);
 
-				size_t j;
-				for(j=0;j<n/4;j++) {
-					w0[j][0]	= W_re(n,j);
-					w0[j][1]	= W_im(n,j);
-				}
+			size_t j;
+			for(j=0;j<n/4;j++) {
+				w0[j][0]	= W_re(n,j);
+				w0[j][1]	= W_im(n,j);
+			}
 
 
-				float *fw0 = (float *)w0;
-				#ifdef __arm__
-					if(N < 32) {
-						//w = FFTS_MALLOC(n/4 * 2 * sizeof(cdata_t), 32);
-						float *fw = (float *)w;
-						V temp0, temp1, temp2;
-						for(j=0;j<n/4;j+=2) {
-						//	#ifdef HAVE_NEON
-							temp0 = VLD(fw0 + j*2);
-							V re, im;
-							re = VDUPRE(temp0);
-							im = VDUPIM(temp0);
-							#ifdef HAVE_NEON 
-								im = VXOR(im, MULI_SIGN);
-								//im = IMULI(sign>0, im);
-							#else
-								im = MULI(sign>0, im);
-							#endif
-							VST(fw + j*4  , re);
-							VST(fw + j*4+4, im);
-					//		#endif
-						}
-						w += n/4 * 2;
-					}else{
-						//w = FFTS_MALLOC(n/4 * sizeof(cdata_t), 32);
-						float *fw = (float *)w;
-						#ifdef HAVE_NEON
-							VS temp0, temp1, temp2;
-							for(j=0;j<n/4;j+=4) {
-								temp0 = VLD2(fw0 + j*2);
-								temp0.val[1] = VXOR(temp0.val[1], neg);
-								STORESPR(fw + j*2, temp0);
-							}
-						#else
-							for(j=0;j<n/4;j+=1) {
-								fw[j*2] = fw0[j*2];
-								fw[j*2+1] = (sign < 0) ? fw0[j*2+1] : -fw0[j*2+1];
-							}
-						#endif
-						w += n/4;
-					}
-				#else
+			float *fw0 = (float *)w0;
+			#ifdef __arm__
+				if(N < 32) {
 					//w = FFTS_MALLOC(n/4 * 2 * sizeof(cdata_t), 32);
 					float *fw = (float *)w;
 					V temp0, temp1, temp2;
 					for(j=0;j<n/4;j+=2) {
+					//	#ifdef HAVE_NEON
 						temp0 = VLD(fw0 + j*2);
 						V re, im;
 						re = VDUPRE(temp0);
 						im = VDUPIM(temp0);
-						im = VXOR(im, MULI_SIGN);
+						#ifdef HAVE_NEON 
+							im = VXOR(im, MULI_SIGN);
+							//im = IMULI(sign>0, im);
+						#else
+							im = MULI(sign>0, im);
+						#endif
 						VST(fw + j*4  , re);
 						VST(fw + j*4+4, im);
+				//		#endif
 					}
 					w += n/4 * 2;
-				#endif
-
-				FFTS_FREE(w0);
-			}else{
-
-				cdata_t *w0 = FFTS_MALLOC(n/8 * sizeof(cdata_t), 32);
-				cdata_t *w1 = FFTS_MALLOC(n/8 * sizeof(cdata_t), 32);
-				cdata_t *w2 = FFTS_MALLOC(n/8 * sizeof(cdata_t), 32);
-
-				size_t j;
-				for(j=0;j<n/8;j++) {
-					w0[j][0]	= W_re(n,j*2);
-					w0[j][1]	= W_im(n,j*2);
-					w1[j][0]	= W_re(n,j);
-					w1[j][1]	= W_im(n,j);
-					w2[j][0]	= W_re(n,j + (n/8));
-					w2[j][1]	= W_im(n,j + (n/8));
-
-				}
-
-				float *fw0 = (float *)w0;
-				float *fw1 = (float *)w1;
-				float *fw2 = (float *)w2;
-				#ifdef __arm__
-					//w = FFTS_MALLOC(n/8 * 3 * sizeof(cdata_t), 32);
+				}else{
+					//w = FFTS_MALLOC(n/4 * sizeof(cdata_t), 32);
 					float *fw = (float *)w;
-					#ifdef HAVE_NEON	
+					#ifdef HAVE_NEON
 						VS temp0, temp1, temp2;
-						for(j=0;j<n/8;j+=4) {
+						for(j=0;j<n/4;j+=4) {
 							temp0 = VLD2(fw0 + j*2);
 							temp0.val[1] = VXOR(temp0.val[1], neg);
-							STORESPR(fw + j*2*3,      temp0);
-							temp1 = VLD2(fw1 + j*2);
-							temp1.val[1] = VXOR(temp1.val[1], neg);
-							STORESPR(fw + j*2*3 + 8,  temp1);
-							temp2 = VLD2(fw2 + j*2);
-							temp2.val[1] = VXOR(temp2.val[1], neg);
-							STORESPR(fw + j*2*3 + 16, temp2);
+							STORESPR(fw + j*2, temp0);
 						}
 					#else
-						for(j=0;j<n/8;j+=1) {
-								fw[j*6] = fw0[j*2];
-								fw[j*6+1] = (sign < 0) ? fw0[j*2+1] : -fw0[j*2+1];
-								fw[j*6+2] = fw1[j*2+0];
-								fw[j*6+3] = (sign < 0) ? fw1[j*2+1] : -fw1[j*2+1];
-								fw[j*6+4] = fw2[j*2+0];
-								fw[j*6+5] = (sign < 0) ? fw2[j*2+1] : -fw2[j*2+1];
+						for(j=0;j<n/4;j+=1) {
+							fw[j*2] = fw0[j*2];
+							fw[j*2+1] = (sign < 0) ? fw0[j*2+1] : -fw0[j*2+1];
 						}
 					#endif
-					w += n/8 * 3;
-				#else
-					//w = FFTS_MALLOC(n/8 * 3 * 2 * sizeof(cdata_t), 32);
-					float *fw = (float *)w;
-					V temp0, temp1, temp2, re, im;
-					for(j=0;j<n/8;j+=2) {
-						temp0 = VLD(fw0 + j*2);
-						re = VDUPRE(temp0);
-						im = VDUPIM(temp0);
-						im = VXOR(im, MULI_SIGN);
-						VST(fw + j*2*6  , re);
-						VST(fw + j*2*6+4, im);
+					w += n/4;
+				}
+			#else
+				//w = FFTS_MALLOC(n/4 * 2 * sizeof(cdata_t), 32);
+				float *fw = (float *)w;
+				V temp0, temp1, temp2;
+				for(j=0;j<n/4;j+=2) {
+					temp0 = VLD(fw0 + j*2);
+					V re, im;
+					re = VDUPRE(temp0);
+					im = VDUPIM(temp0);
+					im = VXOR(im, MULI_SIGN);
+					VST(fw + j*4  , re);
+					VST(fw + j*4+4, im);
+				}
+				w += n/4 * 2;
+			#endif
 
-						temp1 = VLD(fw1 + j*2);
-						re = VDUPRE(temp1);
-						im = VDUPIM(temp1);
-						im = VXOR(im, MULI_SIGN);
-						VST(fw + j*2*6+8 , re);
-						VST(fw + j*2*6+12, im);
+			FFTS_FREE(w0);
+		}else{
 
-						temp2 = VLD(fw2 + j*2);
-						re = VDUPRE(temp2);
-						im = VDUPIM(temp2);
-						im = VXOR(im, MULI_SIGN);
-						VST(fw + j*2*6+16, re);
-						VST(fw + j*2*6+20, im);
-					}
-					w += n/8 * 3 * 2;
-				#endif
+			cdata_t *w0 = FFTS_MALLOC(n/8 * sizeof(cdata_t), 32);
+			cdata_t *w1 = FFTS_MALLOC(n/8 * sizeof(cdata_t), 32);
+			cdata_t *w2 = FFTS_MALLOC(n/8 * sizeof(cdata_t), 32);
 
-				FFTS_FREE(w0);
-				FFTS_FREE(w1);
-				FFTS_FREE(w2);
+			size_t j;
+			for(j=0;j<n/8;j++) {
+				w0[j][0]	= W_re(n,j*2);
+				w0[j][1]	= W_im(n,j*2);
+				w1[j][0]	= W_re(n,j);
+				w1[j][1]	= W_im(n,j);
+				w2[j][0]	= W_re(n,j + (n/8));
+				w2[j][1]	= W_im(n,j + (n/8));
+
 			}
-			///p->ws[i] = w;
 
-			n *= 2;
+			float *fw0 = (float *)w0;
+			float *fw1 = (float *)w1;
+			float *fw2 = (float *)w2;
+			#ifdef __arm__
+				//w = FFTS_MALLOC(n/8 * 3 * sizeof(cdata_t), 32);
+				float *fw = (float *)w;
+				#ifdef HAVE_NEON	
+					VS temp0, temp1, temp2;
+					for(j=0;j<n/8;j+=4) {
+						temp0 = VLD2(fw0 + j*2);
+						temp0.val[1] = VXOR(temp0.val[1], neg);
+						STORESPR(fw + j*2*3,	  temp0);
+						temp1 = VLD2(fw1 + j*2);
+						temp1.val[1] = VXOR(temp1.val[1], neg);
+						STORESPR(fw + j*2*3 + 8,  temp1);
+						temp2 = VLD2(fw2 + j*2);
+						temp2.val[1] = VXOR(temp2.val[1], neg);
+						STORESPR(fw + j*2*3 + 16, temp2);
+					}
+				#else
+					for(j=0;j<n/8;j+=1) {
+							fw[j*6] = fw0[j*2];
+							fw[j*6+1] = (sign < 0) ? fw0[j*2+1] : -fw0[j*2+1];
+							fw[j*6+2] = fw1[j*2+0];
+							fw[j*6+3] = (sign < 0) ? fw1[j*2+1] : -fw1[j*2+1];
+							fw[j*6+4] = fw2[j*2+0];
+							fw[j*6+5] = (sign < 0) ? fw2[j*2+1] : -fw2[j*2+1];
+					}
+				#endif
+				w += n/8 * 3;
+			#else
+				//w = FFTS_MALLOC(n/8 * 3 * 2 * sizeof(cdata_t), 32);
+				float *fw = (float *)w;
+				V temp0, temp1, temp2, re, im;
+				for(j=0;j<n/8;j+=2) {
+					temp0 = VLD(fw0 + j*2);
+					re = VDUPRE(temp0);
+					im = VDUPIM(temp0);
+					im = VXOR(im, MULI_SIGN);
+					VST(fw + j*2*6	, re);
+					VST(fw + j*2*6+4, im);
+
+					temp1 = VLD(fw1 + j*2);
+					re = VDUPRE(temp1);
+					im = VDUPIM(temp1);
+					im = VXOR(im, MULI_SIGN);
+					VST(fw + j*2*6+8 , re);
+					VST(fw + j*2*6+12, im);
+
+					temp2 = VLD(fw2 + j*2);
+					re = VDUPRE(temp2);
+					im = VDUPIM(temp2);
+					im = VXOR(im, MULI_SIGN);
+					VST(fw + j*2*6+16, re);
+					VST(fw + j*2*6+20, im);
+				}
+				w += n/8 * 3 * 2;
+			#endif
+
+			FFTS_FREE(w0);
+			FFTS_FREE(w1);
+			FFTS_FREE(w2);
 		}
+		///p->ws[i] = w;
+
+		n *= 2;
+	}
 
 	float *tmp = (float *)p->ws;
 
